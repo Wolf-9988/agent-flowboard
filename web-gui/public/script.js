@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${project.name} (${project.status})
                     Tasks: ${project.taskCounts.total} (Completed: ${project.taskCounts.completed})
                 `;
-                listItem.dataset.projectName = project.id; // Store project ID for task fetching
+                listItem.dataset.projectName = project.name; // Store project name for task fetching
                 listItem.addEventListener('click', () => fetchTasks(project.id));
                 projectList.appendChild(listItem);
             });
