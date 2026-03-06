@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlowBoard — Project Management for OpenClaw</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles/dashboard.css?v=19">
+  <!-- Telegram WebApp SDK (loads tg object, also used for graceful degradation check) -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+<script>
+  // Graceful Degradation — client-side check before app loads
+  // If opened outside Telegram AND no session cookie → show info page
+  const _tg = window.Telegram?.WebApp;
+  const _isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname) || window.location.hostname === (window.__LOCAL_HOSTNAME__ || '');
+  if (!_isLocal && (!_tg || !_tg.initData)) {
+    document.addEventListener('DOMContentLoaded', () => {
+      document.body.innerHTML = `
+        <div style="font-family:sans-serif;text-align:center;padding:60px 20px;max-width:400px;margin:0 auto">
+          <img src="./favicon.svg" style="width:64px;margin-bottom:16px" alt="FlowBoard">
+          <h2 style="margin:0 0 8px">FlowBoard</h2>
+          <p style="color:#888;margin:0 0 24px">Please open via Telegram.</p>
+          <p style="color:#aaa;font-size:14px">Open this dashboard from your Telegram bot.</p>
+        </div>`;
+    });
+  }
+</script>
+
+<div class="app" id="app">
+  <div class="sidebar-backdrop"></div>
+  <div class="header">
+    <div class="header-left">
+      <button class="sidebar-toggle" data-action="toggle-sidebar" title="Toggle sidebar">☰</button>
+      <span class="header-logo"><img src="./favicon.svg" alt="FlowBoard"></span>
+      <div class="header-brand">
+        <div class="header-title">FlowBoard</div>
+        <div class="header-subtitle">Project Management</div>
+      </div>
+    </div>
+    <div class="header-right" id="headerRight"></div>
+  </div>
+
+  <div class="tab-bar" id="tabBar">
+    <button class="tab" data-tab="ideas">Ideas</button>
+    <button class="tab active" data-tab="tasks">Tasks</button>
+    <button class="tab" data-tab="files">Files</button>
+    <span class="tab-bar-spacer"></span>
+    <span id="tabBarRight"></span>
+  </div>
+
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-label">Projects</div>
+    <div id="projectList"></div>
+    <div class="sidebar-actions" id="sidebarActions"></div>
+  </div>
+
+  <div class="content" id="content"></div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+<div id="modalRoot"></div>
+
+<script type="module" src="./js/app.js?v=20"></script>
+</body>
+</html>
