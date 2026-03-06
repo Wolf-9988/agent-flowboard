@@ -23,6 +23,7 @@ services:
     volumes:
       - ./web-gui:/app
       - /app/node_modules
+      - ../../projects:/workspace/projects # Mount host projects dir to container
     restart: always
     environment:
       - PORT=3000
