@@ -3,35 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AgentFlowboard Web GUI</title>
+    <title>AgentFlowboard Dashboard</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header>
-        <h1>AgentFlowboard Web GUI</h1>
-    </header>
-    <main>
-        <section id="status-section">
-            <h2>Status & Commands</h2>
-            <button id="testCommandBtn">Simulate Command / Get Status</button>
-            <pre id="statusResult">Awaiting command...</pre>
-        </section>
+    <div id="dashboard-layout">
+        <header class="dashboard-header">
+            <h1>AgentFlowboard</h1>
+            <div class="user-profile">
+                <span>Welcome, Agent!</span>
+                <button class="icon-button">⚙️</button>
+            </div>
+        </header>
 
-        <section id="projects-section">
-            <h2>Projects</h2>
-            <p>Current Project: <span id="currentProjectName">Loading...</span></p>
-            <ul id="projectList">
-                <!-- Projects will be loaded here by JavaScript -->
-            </ul>
-        </section>
+        <aside class="dashboard-sidebar">
+            <nav>
+                <ul>
+                    <li><a href="#" class="nav-link active">Dashboard</a></li>
+                    <li><a href="#" class="nav-link">Projects</a></li>
+                    <li><a href="#" class="nav-link">Files</a></li>
+                    <li><a href="#" class="nav-link">Canvas</a></li>
+                </ul>
+            </nav>
+            <div class="sidebar-controls">
+                <button class="control-button">➕ New Project</button>
+                <button class="control-button">📁 Open File</button>
+            </div>
+        </aside>
 
-        <section id="tasks-section">
-            <h2>Tasks for <span id="tasksProjectName">Selected Project</span></h2>
-            <ul id="taskList">
-                <!-- Tasks will be loaded here by JavaScript -->
-            </ul>
-        </section>
-    </main>
+        <main class="dashboard-content">
+            <section id="status-section" class="card">
+                <h2>Status & Commands</h2>
+                <button id="testCommandBtn" class="action-button">Simulate Command / Get Status</button>
+                <pre id="statusResult">Awaiting command...</pre>
+            </section>
+
+            <section id="projects-section" class="card">
+                <h2>Projects</h2>
+                <p>Current Project: <span id="currentProjectName">Loading...</span></p>
+                <ul id="projectList">
+                    <li>Project Alpha</li>
+                    <li>Project Beta</li>
+                    <li>Project Gamma</li>
+                    <!-- Projects will be loaded here by JavaScript -->
+                </ul>
+            </section>
+
+            <section id="tasks-section" class="card">
+                <h2>Tasks for <span id="tasksProjectName">Selected Project</span></h2>
+                <ul id="taskList">
+                    <li>Task 1: Initial Setup</li>
+                    <li>Task 2: UI Design Review</li>
+                    <li>Task 3: Backend Integration</li>
+                    <!-- Tasks will be loaded here by JavaScript -->
+                </ul>
+            </section>
+
+            <section id="file-explorer-section" class="card hidden">
+                <h2>File Explorer</h2>
+                <p>Content for file explorer will go here.</p>
+                <div class="file-list">
+                    <p>Document.txt</p>
+                    <p>Image.png</p>
+                    <p>Report.pdf</p>
+                </div>
+            </section>
+
+            <section id="canvas-view-section" class="card hidden">
+                <h2>Canvas View</h2>
+                <p>Interactive canvas content will be displayed here.</p>
+                <div class="canvas-placeholder">Drag and drop elements here</div>
+            </section>
+
+            <section id="control-buttons-section" class="card">
+                <h2>Controls</h2>
+                <div class="button-group">
+                    <button class="action-button">▶️ Run Agent</button>
+                    <button class="action-button">⏸️ Pause Agent</button>
+                    <button class="action-button">⏹️ Stop Agent</button>
+                    <button class="action-button secondary">🔄 Refresh Data</button>
+                </div>
+            </section>
+        </main>
+    </div>
     <script src="script.js"></script>
 </body>
 </html>
