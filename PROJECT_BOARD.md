@@ -26,7 +26,7 @@ When pushing a task back to `[~] IN DEVELOPMENT`, Andrew will add a sub-bullet w
 ### Phase 3: Project & Task Management (Full CRUD)
 - [X] Task 3.1: Integrate Project List with Real Data
 - [X] Task 3.2: Integrate Task List with Real Data
-- [~] Task 3.3: Project/Task Creation Forms
+- [X] Task 3.3: Project/Task Creation Forms
 - [ ] Task 3.4: Project/Task Editing & Deletion
 - [ ] Task 3.5: Establish Web GUI as Primary Project Data Source (replace .md files)
 
@@ -36,5 +36,5 @@ When pushing a task back to `[~] IN DEVELOPMENT`, Andrew will add a sub-bullet w
 - [X] Task X.3: Migrate Existing Data (Initial Load)
 - [X] Task X.4: Update `docker-compose.yml` for Database Persistence
 
-### Missing File Fixes (Urgent)
-- [X] Create missing `_index.md` and `tasks.json` files for existing projects.
+### Urgent Bug Fixes
+- [X] Fix SyntaxError: Invalid or unexpected token in `web-gui/server.js` (SQLite CREATE TABLE Canvas_Connections statement)

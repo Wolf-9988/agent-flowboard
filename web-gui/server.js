@@ -1,5 +1,13 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
+
+// Define base paths for existing project data on the file system
+const BASE_DIR = path.join(__dirname, '..', '..', '..', '..'); // Four levels up from server.js
+const PROJECTS_DIR = path.join(BASE_DIR, 'projects');
+const INDEX_FILE = path.join(PROJECTS_DIR, '_index.md');
+const ACTIVE_PROJECT_FILE = path.join(PROJECTS_DIR, 'ACTIVE_PROJECT');
+
 
 const app = express();
 app.use(express.json()); // Enable JSON body parsing
@@ -63,29 +71,38 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
           from_note_id INTEGER NOT NULL,
           to_note_id INTEGER NOT NULL,
           color TEXT,
-          FOREIGN KEY (project_id) REFERENCES Projects(id),
-          FOREIGN KEY (from_note_id) REFERENCES Canvas_Notes(id),
-          FOREIGN KEY (to_note_id) REFERENCES Canvas_Notes(id)
+          FOREIGN KEY (project_id) REFERENCES Projects(id) ON DELETE CASCADE,
+          FOREIGN KEY (from_note_id) REFERENCES Canvas_Notes(id) ON DELETE CASCADE,
+          FOREIGN KEY (to_note_id) REFERENCES Canvas_Notes(id) ON DELETE CASCADE
         );
       `);
       // Initial project setup if no projects exist
-      db.get("SELECT COUNT(*) as count FROM Projects", (err, row) => {
+      db.get("SELECT COUNT(*) as count FROM Projects", async (err, row) => {
         if (err) {
           console.error("Error checking for existing projects:", err.message);
           return;
         }
         if (row.count === 0) {
-          console.log("No projects found, initializing default project.");
-          db.run("INSERT INTO Projects (name, displayName, status, description, is_active) VALUES (?, ?, ?, ?, ?)",
-            ['agentflowboard', 'AgentFlowboard', 'active', 'The main project for AgentFlowboard operations.', 1],
-            function (err) {
-              if (err) {
-                console.error("Error inserting default project:", err.message);
-              } else {
-                console.log(`Default project 'AgentFlowboard' created with ID: ${this.lastID}`);
+          console.log("No projects found in DB. Initiating data migration from filesystem.");
+          try {
+            await migrateDataToSQLite();
+          } catch (migrationError) {
+            console.error("Error during data migration:", migrationError.message);
+            // Fallback to inserting default project if migration fails or no projects were found in filesystem
+            console.log("Attempting to insert default project as migration failed or found no data.");
+            db.run("INSERT INTO Projects (name, displayName, status, description, is_active) VALUES (?, ?, ?, ?, ?)",
+              ['agentflowboard', 'AgentFlowboard', 'active', 'The main project for AgentFlowboard operations.', 1],
+              function (insertErr) {
+                if (insertErr) {
+                  console.error("Error inserting default project after migration attempt:", insertErr.message);
+                } else {
+                  console.log(`Default project 'AgentFlowboard' created with ID: ${this.lastID}`);
+                }
               }
-            }
-          );
+            );
+          }
+        } else {
+          console.log(`Found ${row.count} projects in DB. Skipping migration.`);
         }
       });
     });
@@ -97,15 +114,195 @@ const PORT = process.env.PORT || 3000;
 // Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Define PROJECTS_DIR for direct file access
-// Adjusted WORKSPACE to point to /workspace so that projects directory is accessible
+// Helper to read and parse _index.md for project data
+function parseIndexMd() {
+  if (!fs.existsSync(INDEX_FILE)) {
+    console.warn(`_index.md not found at ${INDEX_FILE}. Returning empty array.`);
+    return [];
+  }
+  const indexContent = fs.readFileSync(INDEX_FILE, 'utf8');
+  const lines = indexContent.split('\n').map(line => line.trim()).filter(line => line.startsWith('|') && !line.startsWith('|-'));
 
+  if (lines.length < 1) { // Only header, no data
+    return [];
+  }
+
+  const projects = [];
+  // Skip header and separator, start from actual project data
+  for (let i = 1; i < lines.length; i++) { // Start from 1 to skip the header line
+    const parts = lines[i].split('|').map(part => part.trim()).filter(part => part !== '');
+    if (parts.length >= 3) {
+      projects.push({
+        name: parts[0],
+        status: parts[1],
+        description: parts[2],
+        displayName: parts[2].split(' - ')[0] || parts[0] // Simple heuristic for displayName
+      });
+    }
+  }
+  return projects;
+}
+
+// Helper to read tasks.json for a given project
+function readTasksFile(projectName) {
+  const tasksFilePath = path.join(PROJECTS_DIR, projectName, 'tasks.json');
+  if (!fs.existsSync(tasksFilePath)) {
+    console.warn(`tasks.json not found for project ${projectName} at ${tasksFilePath}. Returning empty tasks.`);
+    return { tasks: [] };
+  }
+  const tasksContent = fs.readFileSync(tasksFilePath, 'utf8');
+  return JSON.parse(tasksContent);
+}
+
+// Helper to read the active project from ACTIVE_PROJECT_FILE
+function readActiveProject() {
+  if (fs.existsSync(ACTIVE_PROJECT_FILE)) {
+    return fs.readFileSync(ACTIVE_PROJECT_FILE, 'utf8').trim();
+  }
+  return null; // No active project defined
+}
+
+// Helper to get task counts (open, in-progress, completed) for a project
+function getTaskCounts(projectName) {
+  try {
+    const data = readTasksFile(projectName);
+    const tasks = data.tasks;
+    const counts = { open: 0, 'in-progress': 0, completed: 0 };
+    tasks.forEach(task => {
+      if (counts[task.status] !== undefined) {
+        counts[task.status]++;
+      }
+    });
+    return counts;
+  } catch (error) {
+    console.error(`Error getting task counts for project ${projectName}:`, error.message);
+    return { open: 0, 'in-progress': 0, completed: 0 };
+  }
+}
 
 const DASHBOARD_ACCESS_TOKEN = process.env.DASHBOARD_ACCESS_TOKEN; // Still needed for /api/status endpoint
 
 
 
-// Helper to generate a unique project name
+
+// Promise-based wrappers for SQLite operations
+function runQuery(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(this.lastID);
+      }
+    });
+  });
+}
+
+function getQuery(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(row);
+      }
+    });
+  });
+}
+
+async function migrateDataToSQLite() {
+  console.log('Starting data migration to SQLite...');
+  const fileSystemProjects = parseIndexMd();
+  const activeProjectName = readActiveProject();
+
+  const projectIdMap = new Map(); // Maps filesystem project name to SQLite project ID
+  const taskIdMap = new Map(); // Maps filesystem task ID to SQLite task ID for a given project
+
+  // Pass 1: Insert Projects
+  for (const project of fileSystemProjects) {
+    const is_active = (project.name === activeProjectName) ? 1 : 0;
+    try {
+      const projectId = await runQuery(
+        `INSERT INTO Projects (name, displayName, status, description, is_active) VALUES (?, ?, ?, ?, ?)`,
+        [project.name, project.displayName, project.status, project.description, is_active]
+      );
+      projectIdMap.set(project.name, projectId);
+      console.log(`Migrated project: ${project.name} (ID: ${projectId})`);
+    } catch (err) {
+      if (err.message.includes('UNIQUE constraint failed')) {
+        console.warn(`Project '${project.name}' already exists in DB, attempting to retrieve ID.`);
+        const existingProject = await getQuery(`SELECT id FROM Projects WHERE name = ?`, [project.name]);
+        if (existingProject) {
+          projectIdMap.set(project.name, existingProject.id);
+        } else {
+          console.error(`Error retrieving existing project ID for '${project.name}':`, err.message);
+        }
+      } else {
+        console.error(`Error migrating project ${project.name}:`, err.message);
+      }
+    }
+  }
+
+  // Pass 2: Insert Tasks and populate taskIdMap
+  for (const project of fileSystemProjects) {
+    const projectId = projectIdMap.get(project.name);
+    if (!projectId) {
+      console.warn(`Could not find project ID for '${project.name}', skipping tasks migration.`);
+      continue;
+    }
+
+    const fileSystemTasksData = readTasksFile(project.name);
+    if (!fileSystemTasksData || !fileSystemTasksData.tasks) {
+      continue;
+    }
+
+    for (const task of fileSystemTasksData.tasks) {
+      try {
+        const taskId = await runQuery(
+          `INSERT INTO Tasks (project_id, title, priority, status, created_at) VALUES (?, ?, ?, ?, ?)`,
+          [projectId, task.title, task.priority, task.status || 'open', task.createdAt || new Date().toISOString()]
+        );
+        // Store mapping as 'projectName-originalTaskId' -> newDbTaskId
+        taskIdMap.set(`${project.name}-${task.id}`, taskId);
+        console.log(`Migrated task: ${task.title} (ID: ${taskId}) for project ${project.name}`);
+      } catch (err) {
+        console.error(`Error migrating task '${task.title}' for project '${project.name}':`, err.message);
+      }
+    }
+  }
+
+  // Pass 3: Update parent_task_id for subtasks
+  for (const project of fileSystemProjects) {
+    const fileSystemTasksData = readTasksFile(project.name);
+    if (!fileSystemTasksData || !fileSystemTasksData.tasks) {
+      continue;
+    }
+
+    for (const task of fileSystemTasksData.tasks) {
+      if (task.parentTask) {
+        const currentDbTaskId = taskIdMap.get(`${project.name}-${task.id}`);
+        const parentDbTaskId = taskIdMap.get(`${project.name}-${task.parentTask}`);
+
+        if (currentDbTaskId && parentDbTaskId) {
+          try {
+            await runQuery(
+              `UPDATE Tasks SET parent_task_id = ? WHERE id = ?`,
+              [parentDbTaskId, currentDbTaskId]
+            );
+            console.log(`Updated parent for task '${task.title}' (DB ID: ${currentDbTaskId}) to parent DB ID: ${parentDbTaskId}`);
+          } catch (err) {
+            console.error(`Error updating parent for task '${task.title}':`, err.message);
+          }
+        } else {
+          console.warn(`Could not find DB IDs for task '${task.title}' (original ID: ${task.id}) or its parent '${task.parentTask}' in project '${project.name}', skipping parent update.`);
+        }
+      }
+    }
+  }
+
+  console.log('Data migration to SQLite complete.');
+}
+
 function generateUniqueProjectName(existingProjects) {
   let newProjectName = 'project-new';
   let counter = 1;
