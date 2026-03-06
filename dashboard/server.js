@@ -111,7 +111,7 @@ app.use('/api/', rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => req.ip === '127.0.0.1' || req.ip === '::1', // localhost immer erlauben
-  keyGenerator: (req) => req.headers['cf-connecting-ip'] || req.ip,
+  keyGenerator: (req) => req.headers['cf-connecting-ip'] || rateLimit.ipKeyGenerator(req),
   message: { error: 'Too many requests, please slow down.' }
 }));
 
