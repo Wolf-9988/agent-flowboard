@@ -2,6 +2,14 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 
+// New helper function to escape backticks
+function escapeBackticks(str) {
+  if (typeof str !== 'string') {
+    return str; // Return non-string values as is
+  }
+  return str.replace(/`/g, '\`');
+}
+
 // Define base paths for existing project data on the file system
 const BASE_DIR = path.join(__dirname, '..', '..', '..', '..'); // Four levels up from server.js
 const PROJECTS_DIR = path.join(BASE_DIR, 'projects');
@@ -13,7 +21,7 @@ const app = express();
 app.use(express.json()); // Enable JSON body parsing
 
 const sqlite3 = require('sqlite3').verbose();
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', '..', '..', '..', 'data', 'agentflowboard.db');
+const DB_PATH = process.env.DB_PATH || '/data/agentflowboard.db';
 
 const db = new sqlite3.Database(DB_PATH, (err) => {
   if (err) {
@@ -84,8 +92,10 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
         }
         if (row.count === 0) {
           console.log("No projects found in DB. Initiating data migration from filesystem.");
+          console.log("Attempting data migration...");
           try {
             await migrateDataToSQLite();
+            console.log("Data migration process completed.");
           } catch (migrationError) {
             console.error("Error during data migration:", migrationError.message);
             // Fallback to inserting default project if migration fails or no projects were found in filesystem
@@ -210,6 +220,18 @@ function getQuery(sql, params = []) {
   });
 }
 
+function allQuery(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(rows);
+      }
+    });
+  });
+}
+
 async function migrateDataToSQLite() {
   console.log('Starting data migration to SQLite...');
   const fileSystemProjects = parseIndexMd();
@@ -224,7 +246,7 @@ async function migrateDataToSQLite() {
     try {
       const projectId = await runQuery(
         `INSERT INTO Projects (name, displayName, status, description, is_active) VALUES (?, ?, ?, ?, ?)`,
-        [project.name, project.displayName, project.status, project.description, is_active]
+        [escapeBackticks(project.name), escapeBackticks(project.displayName), escapeBackticks(project.status), escapeBackticks(project.description), is_active]
       );
       projectIdMap.set(project.name, projectId);
       console.log(`Migrated project: ${project.name} (ID: ${projectId})`);
@@ -260,11 +282,11 @@ async function migrateDataToSQLite() {
       try {
         const taskId = await runQuery(
           `INSERT INTO Tasks (project_id, title, priority, status, created_at) VALUES (?, ?, ?, ?, ?)`,
-          [projectId, task.title, task.priority, task.status || 'open', task.createdAt || new Date().toISOString()]
+          [projectId, escapeBackticks(task.title), escapeBackticks(task.priority), escapeBackticks(task.status) || 'open', task.createdAt || new Date().toISOString()]
         );
         // Store mapping as 'projectName-originalTaskId' -> newDbTaskId
         taskIdMap.set(`${project.name}-${task.id}`, taskId);
-        console.log(`Migrated task: ${task.title} (ID: ${taskId}) for project ${project.name}`);
+        console.log(`[Task Migration] Successfully migrated task: ${task.title} (DB ID: ${taskId}) for project ${project.name}`);
       } catch (err) {
         console.error(`Error migrating task '${task.title}' for project '${project.name}':`, err.message);
       }
@@ -314,109 +336,83 @@ function generateUniqueProjectName(existingProjects) {
   return newProjectName;
 }
 
-// API endpoint to create a new project
-app.post('/api/web/projects', (req, res) => {
+// API endpoint to create a new project in SQLite
+app.post('/api/web/projects', async (req, res) => {
   const { projectName, projectDescription } = req.body;
 
   if (!projectName) {
     return res.status(400).json({ error: 'Project name is required' });
   }
 
+  const projectSlug = projectName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-*|-*$/g, '');
+
   try {
-    const existingProjects = parseIndexMd();
-    const newProjectSlug = projectName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-*|-*$/g, '');
-
-    // Check for existing project with the same slug
-    if (existingProjects.some(p => p.name === newProjectSlug)) {
-        return res.status(409).json({ error: `Project with name "${projectName}" already exists.` });
+    // Check for existing project with the same slug in DB
+    const existingProject = await getQuery(`SELECT id FROM Projects WHERE name = ?`, [projectSlug]);
+    if (existingProject) {
+      return res.status(409).json({ error: `Project with name "${projectName}" already exists.` });
     }
 
-    const projectDir = path.join(PROJECTS_DIR, newProjectSlug);
-    if (fs.existsSync(projectDir)) {
-      return res.status(409).json({ error: `Directory for project "${projectName}" already exists.` });
-    }
+    const projectId = await runQuery(
+      `INSERT INTO Projects (name, displayName, status, description, is_active) VALUES (?, ?, ?, ?, ?)`,
+      [projectSlug, projectName, 'active', projectDescription || 'A new project.', 0] // New projects are not active by default
+    );
 
-    fs.mkdirSync(projectDir, { recursive: true });
-
-    // Create PROJECT.md
-    const projectMdContent = `# ${projectName}
-
-${projectDescription || 'No description provided.'}`;
-    fs.writeFileSync(path.join(projectDir, 'PROJECT.md'), projectMdContent, 'utf8');
-
-    // Create tasks.json
-    fs.writeFileSync(path.join(projectDir, 'tasks.json'), JSON.stringify({ tasks: [] }, null, 2), 'utf8');
-
-    // Update _index.md
-    let indexMdContent = '';
-    if (fs.existsSync(INDEX_FILE)) {
-      indexMdContent = fs.readFileSync(INDEX_FILE, 'utf8');
-    }
-
-    const newProjectEntry = `| ${newProjectSlug} | active | ${projectName} - ${projectDescription || 'A new project.'} |`;
-    const lines = indexMdContent.split('\n');
-    let updatedIndexMd = '';
-    let added = false;
-
-    // Find where to insert, typically after the header and separator
-    if (lines.length >= 2 && lines[0].startsWith('| Project') && lines[1].startsWith('|---|')) {
-      updatedIndexMd = lines[0] + '\n' + lines[1] + '\n';
-      for (let i = 2; i < lines.length; i++) {
-        if (!added && lines[i].trim() === '') { // Insert before the first empty line or end of file
-          updatedIndexMd += newProjectEntry + '\n';
-          added = true;
-        }
-        updatedIndexMd += lines[i] + '\n';
-      }
-      if (!added) { // If no empty line found, add at the end
-        updatedIndexMd += newProjectEntry + '\n';
-      }
-    } else {
-      // If _index.md is empty or malformed, create a new one
-      updatedIndexMd = '| Project | Status | Description |
-|---|---|---|
-' + newProjectEntry + '\n';
-    }
-
-    fs.writeFileSync(INDEX_FILE, updatedIndexMd.trim(), 'utf8');
-
-    res.status(201).json({ message: 'Project created successfully', projectName: newProjectSlug });
+    res.status(201).json({ message: 'Project created successfully', projectName: projectSlug, projectId: projectId });
   } catch (error) {
-    console.error('Error creating project:', error);
+    console.error('Error creating project in database:', error.message);
     res.status(500).json({ error: 'Failed to create project', details: error.message });
   }
 });
 
-// API endpoint to get projects (now directly from filesystem)
-app.get('/api/web/projects', (req, res) => {
-  console.log('Received request for /api/web/projects (from filesystem)');
+// API endpoint to get projects from SQLite
+app.get('/api/web/projects', async (req, res) => {
+  console.log('Received request for /api/web/projects (from SQLite)');
   try {
-    const projects = parseIndexMd().map(p => ({
-      ...p,
-      taskCounts: getTaskCounts(p.name)
-    }));
-    // Dynamically determine active project from ACTIVE_PROJECT_FILE
-    const activeProject = readActiveProject();
+    const projects = await allQuery(`SELECT id, name, displayName, status, description, is_active FROM Projects`);
+
+    // Fetch task counts for each project
+    for (const project of projects) {
+      const taskCounts = await getQuery(
+        `SELECT
+          SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open,
+          SUM(CASE WHEN status = 'in-progress' THEN 1 ELSE 0 END) as 'in-progress',
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
+        FROM Tasks WHERE project_id = ?`,
+        [project.id]
+      );
+      project.taskCounts = {
+        open: taskCounts.open || 0,
+        'in-progress': taskCounts['in-progress'] || 0,
+        completed: taskCounts.completed || 0,
+      };
+    }
+
+    const activeProjectRow = await getQuery(`SELECT name FROM Projects WHERE is_active = 1`);
+    const activeProject = activeProjectRow ? activeProjectRow.name : null;
+
     res.json({ activeProject: activeProject, projects: projects });
   } catch (error) {
-    console.error('Error reading projects from filesystem:', error.message);
+    console.error('Error reading projects from database:', error.message);
     res.status(500).json({ error: 'Failed to read projects', details: error.message });
   }
 });
 
-// API endpoint to get tasks for a specific project (now directly from filesystem)
-app.get('/api/web/projects/:projectName/tasks', (req, res) => {
+// API endpoint to get tasks for a specific project from SQLite
+app.get('/api/web/projects/:projectName/tasks', async (req, res) => {
   const projectName = req.params.projectName;
-  console.log(`Received request for tasks for project: ${projectName} (from filesystem)`);
+  console.log(`Received request for tasks for project: ${projectName} (from SQLite)`);
   try {
-    const data = readTasksFile(projectName);
-    if (!data) {
-      console.warn(`No tasks data found for project: ${projectName}`);
-      return res.status(404).json({ error: 'Project not found or has no tasks' });
+    const project = await getQuery(`SELECT id FROM Projects WHERE name = ?`, [projectName]);
+    if (!project) {
+      console.warn(`Project not found in DB: ${projectName}`);
+      return res.status(404).json({ error: 'Project not found' });
     }
-    res.json({ project: projectName, tasks: data.tasks, taskContext: `Context for ${projectName} tasks.` });
+
+    const tasks = await allQuery(`SELECT id, title, priority, status, parent_task_id AS parentTask, created_at AS createdAt FROM Tasks WHERE project_id = ?`, [project.id]);
+    res.json({ project: projectName, tasks: tasks, taskContext: `Context for ${projectName} tasks.` });
   } catch (error) {
-    console.error(`Error reading tasks for project ${projectName} from filesystem:`, error.message);
+    console.error(`Error reading tasks for project ${projectName} from database:`, error.message);
     res.status(500).json({ error: `Failed to read tasks for project ${projectName}`, details: error.message });
   }
 });
@@ -433,8 +429,8 @@ function generateUniqueTaskId(tasks) {
   return newTaskId;
 }
 
-// API endpoint to create a new task for a project
-app.post('/api/web/projects/:projectName/tasks', (req, res) => {
+// API endpoint to create a new task for a project in SQLite
+app.post('/api/web/projects/:projectName/tasks', async (req, res) => {
   const projectName = req.params.projectName;
   const { taskTitle, taskPriority, parentTask } = req.body;
 
@@ -443,32 +439,97 @@ app.post('/api/web/projects/:projectName/tasks', (req, res) => {
   }
 
   try {
-    const tasksFile = path.join(PROJECTS_DIR, projectName, 'tasks.json');
-
-    let tasksData = { tasks: [] };
-    if (fs.existsSync(tasksFile)) {
-      tasksData = JSON.parse(fs.readFileSync(tasksFile, 'utf8'));
+    const project = await getQuery(`SELECT id FROM Projects WHERE name = ?`, [projectName]);
+    if (!project) {
+      console.warn(`Project not found in DB: ${projectName}`);
+      return res.status(404).json({ error: 'Project not found' });
     }
 
-    const newTaskId = generateUniqueTaskId(tasksData.tasks);
-    const newTask = {
-      id: newTaskId,
-      title: taskTitle,
-      priority: taskPriority,
-      status: 'open', // Default status for a new task
-      parentTask: parentTask || null, // Allow null for no parent task
-      createdAt: new Date().toISOString()
-    };
+    // Find the parent task ID if parentTask is provided
+    let parentTaskId = null;
+    if (parentTask) {
+      const parent = await getQuery(`SELECT id FROM Tasks WHERE project_id = ? AND title = ?`, [project.id, parentTask]);
+      if (parent) {
+        parentTaskId = parent.id;
+      } else {
+        console.warn(`Parent task '${parentTask}' not found for project '${projectName}'. Task will be created without a parent.`);
+      }
+    }
 
-    tasksData.tasks.push(newTask);
-    fs.writeFileSync(tasksFile, JSON.stringify(tasksData, null, 2), 'utf8');
+    const taskId = await runQuery(
+      `INSERT INTO Tasks (project_id, title, priority, status, parent_task_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+      [project.id, taskTitle, taskPriority, 'open', parentTaskId, new Date().toISOString()]
+    );
+
+    const newTask = { id: taskId, title: taskTitle, priority: taskPriority, status: 'open', parentTask: parentTaskId, createdAt: new Date().toISOString() };
 
     res.status(201).json({ message: 'Task created successfully', task: newTask });
   } catch (error) {
-    console.error('Error creating task:', error);
+    console.error('Error creating task in database:', error.message);
     res.status(500).json({ error: 'Failed to create task', details: error.message });
   }
 });
+
+// API endpoint to update a project
+app.put('/api/web/projects/:id', async (req, res) => {
+    const { id } = req.params;
+    const { displayName, description } = req.body;
+
+    if (!displayName || !description) {
+        return res.status(400).json({ error: 'Display name and description are required.' });
+    }
+
+    try {
+        await runQuery(`UPDATE Projects SET displayName = ?, description = ? WHERE id = ?`, [displayName, description, id]);
+        res.json({ message: 'Project updated successfully' });
+    } catch (error) {
+        console.error('Error updating project:', error.message);
+        res.status(500).json({ error: 'Failed to update project', details: error.message });
+    }
+});
+
+// API endpoint to delete a project
+app.delete('/api/web/projects/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await runQuery(`DELETE FROM Projects WHERE id = ?`, [id]);
+        res.json({ message: 'Project deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting project:', error.message);
+        res.status(500).json({ error: 'Failed to delete project', details: error.message });
+    }
+});
+
+// API endpoint to update a task
+app.put('/api/web/tasks/:id', async (req, res) => {
+    const { id } = req.params;
+    const { title, priority, status } = req.body;
+
+    if (!title || !priority || !status) {
+        return res.status(400).json({ error: 'Title, priority, and status are required.' });
+    }
+
+    try {
+        await runQuery(`UPDATE Tasks SET title = ?, priority = ?, status = ? WHERE id = ?`, [title, priority, status, id]);
+        res.json({ message: 'Task updated successfully' });
+    } catch (error) {
+        console.error('Error updating task:', error.message);
+        res.status(500).json({ error: 'Failed to update task', details: error.message });
+    }
+});
+
+// API endpoint to delete a task
+app.delete('/api/web/tasks/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await runQuery(`DELETE FROM Tasks WHERE id = ?`, [id]);
+        res.json({ message: 'Task deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting task:', error.message);
+        res.status(500).json({ error: 'Failed to delete task', details: error.message });
+    }
+});
+
 
 // Existing API endpoint to simulate sending a command and getting a status
 // This still uses the token for demonstration, as it's not directly tied to file access.

@@ -27,14 +27,14 @@ When pushing a task back to `[~] IN DEVELOPMENT`, Andrew will add a sub-bullet w
 - [X] Task 3.1: Integrate Project List with Real Data
 - [X] Task 3.2: Integrate Task List with Real Data
 - [X] Task 3.3: Project/Task Creation Forms
-- [ ] Task 3.4: Project/Task Editing & Deletion
+- [?] Task 3.4: Project/Task Editing & Deletion
 - [ ] Task 3.5: Establish Web GUI as Primary Project Data Source (replace .md files)
 
 ### Phase X: Database Integration (SQLite)
 - [X] Task X.1: Design Database Schema
 - [X] Task X.2: Integrate SQLite into `web-gui/server.js`
-- [X] Task X.3: Migrate Existing Data (Initial Load)
+- [?] Task X.3: Migrate Existing Data (Initial Load)
 - [X] Task X.4: Update `docker-compose.yml` for Database Persistence
 
 ### Urgent Bug Fixes
-- [X] Fix SyntaxError: Invalid or unexpected token in `web-gui/server.js` (SQLite CREATE TABLE Canvas_Connections statement)
+- [X] Fix SyntaxError: Invalid or unexpected token at `web-gui/server.js` line 376

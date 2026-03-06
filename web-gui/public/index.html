@@ -19,14 +19,14 @@
         <aside class="dashboard-sidebar">
             <nav>
                 <ul>
-                    <li><a href="#" class="nav-link active">Dashboard</a></li>
-                    <li><a href="#" class="nav-link">Projects</a></li>
-                    <li><a href="#" class="nav-link">Files</a></li>
-                    <li><a href="#" class="nav-link">Canvas</a></li>
+                    <li><a href="#Dashboard" class="nav-link active">Dashboard</a></li>
+                    <li><a href="#Projects" class="nav-link">Projects</a></li>
+                    <li><a href="#Files" class="nav-link">Files</a></li>
+                    <li><a href="#Canvas" class="nav-link">Canvas</a></li>
                 </ul>
             </nav>
             <div class="sidebar-controls">
-                <button class="control-button">➕ New Project</button>
+                <button id="newProjectBtn" class="control-button">➕ New Project</button>
                 <button class="control-button">📁 Open File</button>
             </div>
         </aside>
@@ -42,19 +42,16 @@
                 <h2>Projects</h2>
                 <p>Current Project: <span id="currentProjectName">Loading...</span></p>
                 <ul id="projectList">
-                    <li>Project Alpha</li>
-                    <li>Project Beta</li>
-                    <li>Project Gamma</li>
                     <!-- Projects will be loaded here by JavaScript -->
                 </ul>
+                <div class="project-actions">
+                    <button id="addTaskBtn" class="action-button" disabled>➕ Add Task</button>
+                </div>
             </section>
 
             <section id="tasks-section" class="card">
                 <h2>Tasks for <span id="tasksProjectName">Selected Project</span></h2>
                 <ul id="taskList">
-                    <li>Task 1: Initial Setup</li>
-                    <li>Task 2: UI Design Review</li>
-                    <li>Task 3: Backend Integration</li>
                     <!-- Tasks will be loaded here by JavaScript -->
                 </ul>
             </section>
@@ -85,6 +82,50 @@
                 </div>
             </section>
         </main>
+
+        <!-- Modals for Project and Task Creation -->
+        <div id="newProjectModal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Create New Project</h3>
+                <form id="newProjectForm">
+                    <label for="projectNameInput">Project Name:</label>
+                    <input type="text" id="projectNameInput" required>
+                    <label for="projectDescriptionInput">Description:</label>
+                    <textarea id="projectDescriptionInput"></textarea>
+                    <div class="modal-actions">
+                        <button type="submit" class="action-button">Create</button>
+                        <button type="button" class="action-button secondary" id="cancelNewProject">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="newTaskModal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Create New Task for <span id="newTaskProjectName"></span></h3>
+                <form id="newTaskForm">
+                    <label for="taskTitleInput">Task Title:</label>
+                    <input type="text" id="taskTitleInput" required>
+                    <label for="taskPriorityInput">Priority:</label>
+                    <select id="taskPriorityInput">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                        <option value="critical">Critical</option>
+                    </select>
+                    <label for="taskParentInput">Parent Task (optional):</label>
+                    <select id="taskParentInput">
+                        <option value="">None</option>
+                        <!-- Parent tasks will be loaded here -->
+                    </select>
+                    <div class="modal-actions">
+                        <button type="submit" class="action-button">Create</button>
+                        <button type="button" class="action-button secondary" id="cancelNewTask">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
     </div>
     <script src="script.js"></script>
 </body>

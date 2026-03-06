@@ -4,7 +4,7 @@ version: '3.8'
 volumes:
   agentflowboard_db_data: # Define a named volume for database persistence
 
-services:
+
 
 
 services:
@@ -21,6 +21,7 @@ services:
     environment:
       - WEB_GUI_ACCESS_TOKEN=${WEB_GUI_ACCESS_TOKEN}
   web-gui:
+   
     build:
       context: ./web-gui
       dockerfile: Dockerfile
@@ -29,7 +30,7 @@ services:
     volumes:
       - ./web-gui:/app
       - /app/node_modules
-      - /projects:/workspace/projects # Mount host projects dir to container
+      - /home/node/.openclaw/workspace/projects:/workspace/projects # Mount host projects dir to container
       - agentflowboard_db_data:/data # Mount named volume for SQLite persistence
     restart: always
     environment:
