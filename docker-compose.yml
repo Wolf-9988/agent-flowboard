@@ -1,0 +1,26 @@
+
+version: '3.8'
+
+services:
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "18790:18790"
+    volumes:
+      - ./dashboard:/app
+      - /app/node_modules
+    restart: always
+  web-gui:
+    build:
+      context: ./web-gui
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./web-gui:/app
+      - /app/node_modules
+    restart: always
+    environment:
+      - PORT=3000
