@@ -8,10 +8,31 @@
 body {
     font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     line-height: 1.6;
-    color: #333;
-    background-color: #f0f2f5; /* Light gray background */
+    color: var(--text-primary);
+    background-color: var(--bg-primary); /* Light gray background */
     display: flex;
     min-height: 100vh;
+}
+
+/* Dark Theme Color Variables */
+:root {
+    --bg-primary: #22272e;
+    --bg-secondary: #2d333b;
+    --bg-card: #2d333b;
+    --text-primary: #adbac7;
+    --text-secondary: #768390;
+    --border-color: #444c56;
+    --accent-blue: #539bf5;
+    --accent-blue-hover: #6cb6ff;
+    --accent-green: #2ea043;
+    --accent-green-hover: #2c974b;
+    --accent-secondary: #636e7b;
+    --accent-secondary-hover: #768390;
+    --header-bg: #22272e;
+    --sidebar-bg: #2d333b;
+    --sidebar-hover: #444c56;
+    --code-bg: #373e47;
+    --code-border: #444c56;
 }
 
 #dashboard-layout {
@@ -21,21 +42,22 @@ body {
     width: 100%;
     max-width: 1400px; /* Max width for the dashboard */
     margin: 0 auto; /* Center the dashboard */
-    background-color: #ffffff;
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.05);
+    background-color: var(--bg-secondary);
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2); /* Adjusted shadow for dark theme */
     border-radius: 8px;
     overflow: hidden;
 }
 
 .dashboard-header {
     grid-column: 1 / -1; /* Span across all columns */
-    background-color: #007bff; /* Primary blue */
-    color: #ffffff;
+    background-color: var(--header-bg); /* Primary blue */
+    color: var(--text-primary);
     padding: 15px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Adjusted shadow */
+    border-bottom: 1px solid var(--border-color);
 }
 
 .dashboard-header h1 {
@@ -51,7 +73,7 @@ body {
 .icon-button {
     background: none;
     border: none;
-    color: #ffffff;
+    color: var(--text-primary);
     font-size: 1.2em;
     cursor: pointer;
     padding: 5px;
@@ -60,18 +82,19 @@ body {
 }
 
 .icon-button:hover {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: rgba(173, 186, 199, 0.1); /* Lighter hover for dark theme */
 }
 
 .dashboard-sidebar {
     grid-column: 1 / 2;
     grid-row: 2 / 3;
-    background-color: #2c3e50; /* Darker sidebar */
-    color: #ecf0f1;
+    background-color: var(--sidebar-bg); /* Darker sidebar */
+    color: var(--text-primary);
     padding: 20px;
     display: flex;
     flex-direction: column;
     justify-content: space-between; /* Pushes controls to bottom */
+    border-right: 1px solid var(--border-color);
 }
 
 .dashboard-sidebar nav ul {
@@ -83,7 +106,7 @@ body {
 }
 
 .dashboard-sidebar nav ul li a {
-    color: #ecf0f1;
+    color: var(--text-primary);
     text-decoration: none;
     padding: 10px 15px;
     display: block;
@@ -93,8 +116,8 @@ body {
 
 .dashboard-sidebar nav ul li a:hover,
 .dashboard-sidebar nav ul li a.active {
-    background-color: #34495e; /* Slightly lighter on hover/active */
-    color: #ffffff;
+    background-color: var(--sidebar-hover); /* Slightly lighter on hover/active */
+    color: var(--accent-blue);
 }
 
 .sidebar-controls {
@@ -104,7 +127,7 @@ body {
 .control-button {
     width: 100%;
     padding: 10px;
-    background-color: #1abc9c; /* Green for actions */
+    background-color: var(--accent-green); /* Green for actions */
     color: white;
     border: none;
     border-radius: 5px;
@@ -115,14 +138,14 @@ body {
 }
 
 .control-button:hover {
-    background-color: #16a085;
+    background-color: var(--accent-green-hover);
 }
 
 .dashboard-content {
     grid-column: 2 / 3;
     grid-row: 2 / 3;
     padding: 20px;
-    background-color: #f9fafb; /* Even lighter content background */
+    background-color: var(--bg-primary); /* Even lighter content background */
     overflow-y: auto; /* Enable scrolling for content if needed */
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsive grid for cards */
@@ -130,22 +153,23 @@ body {
 }
 
 .card {
-    background-color: #ffffff;
+    background-color: var(--bg-card);
     padding: 20px;
     border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-    border: 1px solid #e0e0e0;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Adjusted shadow */
+    border: 1px solid var(--border-color);
 }
 
 .card h2 {
-    color: #007bff;
+    color: var(--accent-blue);
     margin-bottom: 15px;
     font-size: 1.4em;
 }
 
 #statusResult {
-    background-color: #e9ecef;
-    border: 1px solid #ced4da;
+    background-color: var(--code-bg);
+    border: 1px solid var(--code-border);
+    color: var(--text-primary);
     padding: 15px;
     border-radius: 5px;
     font-family: 'Courier New', Courier, monospace;
@@ -163,7 +187,8 @@ body {
 #projectList li,
 #taskList li {
     padding: 8px 0;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -175,7 +200,7 @@ body {
 }
 
 .action-button {
-    background-color: #007bff;
+    background-color: var(--accent-blue);
     color: white;
     border: none;
     padding: 10px 15px;
@@ -187,15 +212,15 @@ body {
 }
 
 .action-button.secondary {
-    background-color: #6c757d; /* Secondary gray for less primary actions */
+    background-color: var(--accent-secondary); /* Secondary gray for less primary actions */
 }
 
 .action-button:hover {
-    background-color: #0056b3;
+    background-color: var(--accent-blue-hover);
 }
 
 .action-button.secondary:hover {
-    background-color: #5a6268;
+    background-color: var(--accent-secondary-hover);
 }
 
 .button-group button {
@@ -212,8 +237,9 @@ body {
 }
 
 .file-list p {
-    background-color: #f8f9fa;
-    border: 1px solid #e9ecef;
+    background-color: var(--code-bg);
+    border: 1px solid var(--code-border);
+    color: var(--text-primary);
     padding: 8px 12px;
     margin-bottom: 5px;
     border-radius: 4px;
@@ -221,13 +247,13 @@ body {
 }
 
 .canvas-placeholder {
-    background-color: #e9ecef;
-    border: 2px dashed #ced4da;
+    background-color: var(--code-bg);
+    border: 2px dashed var(--code-border);
     height: 200px;
     display: flex;
     justify-content: center;
     align-items: center;
-    color: #6c757d;
+    color: var(--text-secondary);
     font-style: italic;
     border-radius: 5px;
 }
