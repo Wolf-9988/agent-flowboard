@@ -13,7 +13,7 @@ services:
       - /app/node_modules
     restart: always
     environment:
-      - WEB_GUI_ACCESS_TOKEN=your_secret_web_gui_token_here
+      - WEB_GUI_ACCESS_TOKEN=${WEB_GUI_ACCESS_TOKEN}
   web-gui:
     build:
       context: ./web-gui
