@@ -7,14 +7,31 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Welcome to AgentFlowboard Web GUI!</h1>
-        <p>This is a basic proof-of-concept for interacting with AgentFlowboard.</p>
-        <button id="testCommandBtn">Get AgentFlowboard Status</button>
-        <div id="statusResult">
-            <p>Click the button above to get a mocked status from AgentFlowboard.</p>
-        </div>
-    </div>
+    <header>
+        <h1>AgentFlowboard Web GUI</h1>
+    </header>
+    <main>
+        <section id="status-section">
+            <h2>Status & Commands</h2>
+            <button id="testCommandBtn">Simulate Command / Get Status</button>
+            <pre id="statusResult">Awaiting command...</pre>
+        </section>
+
+        <section id="projects-section">
+            <h2>Projects</h2>
+            <p>Current Project: <span id="currentProjectName">Loading...</span></p>
+            <ul id="projectList">
+                <!-- Projects will be loaded here by JavaScript -->
+            </ul>
+        </section>
+
+        <section id="tasks-section">
+            <h2>Tasks for <span id="tasksProjectName">Selected Project</span></h2>
+            <ul id="taskList">
+                <!-- Tasks will be loaded here by JavaScript -->
+            </ul>
+        </section>
+    </main>
     <script src="script.js"></script>
 </body>
 </html>
