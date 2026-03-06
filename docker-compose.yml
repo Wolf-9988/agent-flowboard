@@ -1,6 +1,12 @@
 
 version: '3.8'
 
+volumes:
+  agentflowboard_db_data: # Define a named volume for database persistence
+
+services:
+
+
 services:
   dashboard:
     build:
@@ -23,7 +29,8 @@ services:
     volumes:
       - ./web-gui:/app
       - /app/node_modules
-      - ../../projects:/workspace/projects # Mount host projects dir to container
+      - /projects:/workspace/projects # Mount host projects dir to container
+      - agentflowboard_db_data:/data # Mount named volume for SQLite persistence
     restart: always
     environment:
       - PORT=3000
