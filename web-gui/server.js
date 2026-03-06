@@ -8,13 +8,14 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Define PROJECTS_DIR for direct file access
-const WORKSPACE = process.env.OPENCLAW_WORKSPACE || path.resolve(__dirname, '..', '..'); // Adjusted to point to /workspace
+// Adjusted WORKSPACE to point to /workspace so that projects directory is accessible
+const WORKSPACE = process.env.OPENCLAW_WORKSPACE || path.resolve(__dirname, '..', '..', '..', '..' ); 
 const PROJECTS_DIR = path.join(WORKSPACE, 'projects');
 const INDEX_FILE = path.join(PROJECTS_DIR, '_index.md');
 
 const DASHBOARD_ACCESS_TOKEN = process.env.DASHBOARD_ACCESS_TOKEN; // Still needed for /api/status endpoint
 
-// --- Helper Functions (copied and adapted from dashboard/server.js) ---
+// --- Helper Functions (copied and adapted from dashboard/server.js for direct file access) ---
 
 function getDisplayName(projectName) {
   try {
@@ -23,7 +24,7 @@ function getDisplayName(projectName) {
     let title = firstLine.replace(/^#\s*/, '').trim();
     title = title.split(/\s*[—–]\s*/)[0].trim(); // Strip subtitle
     return title || projectName;
-  } catch { return projectName; }
+  } catch (e) { console.warn(`Could not read PROJECT.md for ${projectName}:`, e.message); return projectName; }
 }
 
 function parseIndexMd() {
@@ -43,14 +44,19 @@ function parseIndexMd() {
       }
     }
     return projects;
-  } catch { return []; }
+  } catch (e) { console.warn(`Could not read _index.md:`, e.message); return []; }
 }
 
 function readTasksFile(projectName) {
   const file = path.join(PROJECTS_DIR, projectName, 'tasks.json');
   try {
+    // Ensure the file exists before trying to read
+    if (!fs.existsSync(file)) {
+      console.warn(`tasks.json not found for project: ${projectName}`);
+      return { tasks: [] }; // Return empty tasks if file not found
+    }
     return JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch { return { tasks: [] }; }
+  } catch (e) { console.warn(`Could not read tasks.json for ${projectName}:`, e.message); return { tasks: [] }; }
 }
 
 function getTaskCounts(projectName) {
@@ -74,8 +80,8 @@ app.get('/api/web/projects', (req, res) => {
       ...p,
       taskCounts: getTaskCounts(p.name)
     }));
-    // TODO: Dynamically read active project, for now just use first or 'none'
-    const activeProject = projects.length > 0 ? projects[0].name : 'None';
+    // Dynamically determine active project from ACTIVE_PROJECT_FILE
+    const activeProject = readActiveProject();
     res.json({ activeProject: activeProject, projects: projects });
   } catch (error) {
     console.error('Error reading projects from filesystem:', error.message);
@@ -89,7 +95,10 @@ app.get('/api/web/projects/:projectName/tasks', (req, res) => {
   console.log(`Received request for tasks for project: ${projectName} (from filesystem)`);
   try {
     const data = readTasksFile(projectName);
-    if (!data) return res.status(404).json({ error: 'Project not found' });
+    if (!data) {
+      console.warn(`No tasks data found for project: ${projectName}`);
+      return res.status(404).json({ error: 'Project not found or has no tasks' });
+    }
     res.json({ project: projectName, tasks: data.tasks, taskContext: `Context for ${projectName} tasks.` });
   } catch (error) {
     console.error(`Error reading tasks for project ${projectName} from filesystem:`, error.message);
@@ -98,6 +107,7 @@ app.get('/api/web/projects/:projectName/tasks', (req, res) => {
 });
 
 // Existing API endpoint to simulate sending a command and getting a status
+// This still uses the token for demonstration, as it's not directly tied to file access.
 app.get('/api/status', (req, res) => {
   console.log('Received request for /api/status');
 
@@ -114,6 +124,16 @@ app.get('/api/status', (req, res) => {
   };
   res.json(mockStatus);
 });
+
+// --- Helper function for active project (from dashboard/server.js) ---
+function readActiveProject() {
+  try {
+    const text = fs.readFileSync(ACTIVE_PROJECT_FILE, 'utf8');
+    const match = text.match(/^project:\s*(.+)$/m);
+    const name = match ? match[1].trim() : 'none';
+    return name === 'none' ? null : name;
+  } catch { return null; }
+}
 
 app.listen(PORT, () => {
   console.log(`Web GUI server listening on port ${PORT}`);
