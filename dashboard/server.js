@@ -57,6 +57,11 @@ function telegramAuthMiddleware(req, res, next) {
   if (!AUTH_ENABLED) return next(); // Auth nicht konfiguriert → offen lassen
   // AUTH_ALWAYS: Auth bei jedem Request (für ngrok, Tailscale, etc.)
   // Ohne AUTH_ALWAYS: nur externe Requests via Cloudflare Tunnel (CF-Ray Header)
+  const WEB_GUI_ACCESS_TOKEN = process.env.WEB_GUI_ACCESS_TOKEN || '';
+  if (WEB_GUI_ACCESS_TOKEN && req.headers['x-web-gui-access'] === WEB_GUI_ACCESS_TOKEN) {
+    console.log('[auth] Bypassing Telegram auth for Web GUI access.');
+    return next();
+  }
   if (!AUTH_ALWAYS && !req.headers['cf-ray']) return next();
   // Optional: allow a custom hostname without auth (e.g. for LAN access via Cloudflare Tunnel)
   const cfHost = (req.headers['host'] || '').split(':')[0];

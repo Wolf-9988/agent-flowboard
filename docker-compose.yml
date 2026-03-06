@@ -12,6 +12,8 @@ services:
       - ./dashboard:/app
       - /app/node_modules
     restart: always
+    environment:
+      - WEB_GUI_ACCESS_TOKEN=your_secret_web_gui_token_here
   web-gui:
     build:
       context: ./web-gui
@@ -24,3 +26,5 @@ services:
     restart: always
     environment:
       - PORT=3000
+      - DASHBOARD_ACCESS_TOKEN=${WEB_GUI_ACCESS_TOKEN}
+      - DASHBOARD_ACCESS_TOKEN=${WEB_GUI_ACCESS_TOKEN}

@@ -13,4 +13,5 @@ When pushing a task back to `[~] IN DEVELOPMENT`, Andrew will add a sub-bullet w
 - [X] Research and resolve 'express' module not found error in Docker build
 - [X] Implement Dockerfile changes based on research findings
 - [X] Develop a web GUI for interacting with the AgentFlowboard
-- [ ] Customize for AgentFlowboard specific needs
+- [X] Investigate and resolve dashboard redirect forcing Telegram access
+- [X] Configure web-gui to send WEB_GUI_ACCESS_TOKEN header
